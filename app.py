@@ -93,17 +93,7 @@ def names():
 
     # Find the most recent date in the data set.
     #read dates into a list
-    max_date = session.query(measurement.date).all()
-
-    # instantiate holding variable
-    most_recent = '0000-00-00'
-
-    #strip off row packaging and update most-recent varaible
-    for date in max_date:
-        date = date[0]
-        if date > most_recent:
-            #print(f"new latest date found: {date}")
-            most_recent = date
+    most_recent = session.query(func.max(measurement.date)).first()[0]
 
     # Calculate the date one year from the last date in data set.
     mos_rec = dt.datetime.strptime(most_recent, '%Y-%m-%d') - dt.timedelta(days=365)
@@ -126,31 +116,24 @@ def names():
 
 
 # define dynamic route
-
-
 # /api/v1.0/<start> and /api/v1.0/<start>/<end>
     # Return a JSON list of the minimum temperature, the average temperature, and the maximum temperature for a given start or start-end range.
-@app.route("/api/v1.0/<start>")
-def start(start):
-    # Create our session (link) from Python to the DB
-    session = Session(engine)   
-    # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than or equal to the start date.
-    temp_query = session.query(measurement.date, measurement.tobs).filter(measurement.date > start)
-
-
-    tempDF = pd.DataFrame(temp_query, columns=['date', 'tobs'])
-    return f"The temperature after the date {start}  the can be summarised as follows: minimum {tempDF['tobs'].min()}, maximum {tempDF['tobs'].max()}, and average {tempDF['tobs'].mean()}."
 
 
     # When given the start and the end date, calculate the TMIN, TAVG, 
     # and TMAX for dates from the start date through the end date (inclusive).
+@app.route("/api/v1.0/<start>")
 @app.route("/api/v1.0/<start>/<end>")
-def betwixt(start, end):
+def betwixt(start, end = None):
     # Create our session (link) from Python to the DB
     session = Session(engine)   
-    # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than or equal to the start date.
-    temp_query = session.query(measurement.date, measurement.tobs).filter(measurement.date > start).filter(measurement.date < end)
 
+    # if they didn't supply an end date, instantiate it as the most recent date in the dataset.
+    if end is None:
+        end = session.query(func.max(measurement.date)).first()[0]
+    
+    # calculate TMIN, TAVG, and TMAX for all dates greater than or equal to the start date .
+    temp_query = session.query(measurement.date, measurement.tobs).filter(measurement.date >= start).filter(measurement.date <= end)
 
     tempDF = pd.DataFrame(temp_query, columns=['date', 'tobs'])
     return f"The temperature between the dates {start} and {end} the can be summarised as follows: minimum {tempDF['tobs'].min()}, maximum {tempDF['tobs'].max()}, and average {tempDF['tobs'].mean()}."
